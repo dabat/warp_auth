@@ -1,4 +1,5 @@
-#![deny(warnings)]
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::Filter;
 /*
     source article here: https://blog.joco.dev/posts/warp_auth_server_tutorial
@@ -11,10 +12,19 @@ use warp::Filter;
 
 #[tokio::main]
 async fn main() {
+    let db = Arc::new(Mutex::new(0));
+    let db = warp::any().map(move || Arc::clone(&db));
+    let count = warp::path("count").and(db.clone()).and_then(counter);
     let register = warp::path("register").map(|| "Hellow from register");
     let login = warp::path("login").map(|| "hello from login");
     let logout = warp::path("logout").map(|| "hello from logout");
-    let routes = register.or(login).or(logout);
+    let routes = register.or(login).or(logout).or(count);
     let routes = warp::path("api").and(routes);
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+}
+
+async fn counter(db: Arc<Mutex<u8>>) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut counter = db.lock().await;
+    *counter += 1;
+    Ok(counter.to_string())
 }
