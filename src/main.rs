@@ -1,6 +1,6 @@
 use argon2::{self, Config};
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -13,6 +13,8 @@ use warp::Filter;
         i tried running this on warp 0.3 and tokio 1.4, and it would not compile with
         error[E0601]: `main` function not found in crate `warp_auth`
         could not find anything about this missing main fn error
+    2.  added a `list` method using some help from the `list_customers` handler example in this readme
+        https://github.com/andrewleverette/rust_warp_api#list-customers
     things to learn more about:
     1.  Arc
     2.  Mutex
@@ -42,11 +44,21 @@ async fn main() {
         .and(db.clone())
         .and_then(login);
     let logout = warp::path("logout").map(|| "hello from logout");
-    let routes = register.or(login).or(logout).or(count);
+    let list = warp::get()
+        .and(warp::path("list"))
+        .and(db.clone())
+        .and_then(list);
+    let routes = register.or(login).or(logout).or(count).or(list);
     let routes = warp::path("api").and(routes);
 
     // start the server
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+}
+
+async fn list(db: Arc<Mutex<HashMap<String, User>>>) -> Result<impl warp::Reply, warp::Rejection> {
+    let users = db.lock().await;
+    let users: Vec<User> = users.values().map(|user| user.clone()).collect();
+    Ok(warp::reply::json(&users))
 }
 
 async fn counter(db: Arc<Mutex<u8>>) -> Result<impl warp::Reply, warp::Rejection> {
@@ -55,7 +67,7 @@ async fn counter(db: Arc<Mutex<u8>>) -> Result<impl warp::Reply, warp::Rejection
     Ok(counter.to_string())
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct User {
     username: String,
     password: String,
