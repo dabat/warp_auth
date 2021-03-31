@@ -11,6 +11,10 @@ use warp::Filter;
 
 #[tokio::main]
 async fn main() {
-    let routes = warp::any().map(|| "Hello, world!");
+    let register = warp::path("register").map(|| "Hellow from register");
+    let login = warp::path("login").map(|| "hello from login");
+    let logout = warp::path("logout").map(|| "hello from logout");
+    let routes = register.or(login).or(logout);
+    let routes = warp::path("api").and(routes);
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
