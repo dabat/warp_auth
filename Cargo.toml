@@ -10,3 +10,5 @@ edition = "2018"
 warp = "0.2"
 tokio = { version = "0.2", features = ["macros"] }
 serde = { version = "1.0", features = ["derive"] }
+rand = "0.7.2"
+rust-argon2 = "0.6.0"

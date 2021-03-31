@@ -1,3 +1,5 @@
+use argon2::{self, Config};
+use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -67,7 +69,11 @@ async fn register(
     if users.contains_key(&new_user.username) {
         return Ok(StatusCode::BAD_REQUEST);
     }
-    users.insert(new_user.username.clone(), new_user);
+    let user_hashed = User {
+        username: new_user.username,
+        password: hash(new_user.password.as_bytes()),
+    };
+    users.insert(user_hashed.username.clone(), user_hashed);
     Ok(StatusCode::CREATED)
 }
 
@@ -79,11 +85,21 @@ async fn login(
     match users.get(&credentials.username) {
         None => Ok(StatusCode::BAD_REQUEST),
         Some(user) => {
-            if credentials.password == user.password {
+            if verify(&user.password, credentials.password.as_bytes()) {
                 Ok(StatusCode::OK)
             } else {
                 Ok(StatusCode::UNAUTHORIZED)
             }
         }
     }
+}
+
+pub fn hash(password: &[u8]) -> String {
+    let salt = rand::thread_rng().gen::<[u8; 32]>();
+    let config = Config::default();
+    argon2::hash_encoded(password, &salt, &config).unwrap()
+}
+
+pub fn verify(hash: &str, password: &[u8]) -> bool {
+    argon2::verify_encoded(hash, password).unwrap_or(false)
 }
